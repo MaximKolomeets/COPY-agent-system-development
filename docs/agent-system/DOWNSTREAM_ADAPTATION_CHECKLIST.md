@@ -1,0 +1,167 @@
+# DOWNSTREAM_ADAPTATION_CHECKLIST
+
+Этот файл — отдельный pre-merge gate (чеклист) для docs-only adoption и review. Он не дублирует правила прозой, а проверяет их пунктами. Канон самих правил:
+
+- режимы adoption, transfer manifest, branch-flow (`developer`/`develop`/`main-only flow`), minimal first PR, пошаговый existing-repo adoption — `docs/agent-system/ADOPTION_GUIDE.md`;
+- `methodology_reference` — `docs/agent-system/ENGINE_ENTRYPOINT.md` → раздел «Methodology reference»;
+- source snapshot drift — `docs/agent-system/source/README.md`;
+- feedback и его sanitization — `docs/agent-system/METHODOLOGY_FEEDBACK_LOOP.md`;
+- governance pack и project constitution — `docs/agent-system/TARGET_PROJECT_GOVERNANCE_PACK.md`, `docs/agent-system/PROJECT_CONSTITUTION_FRAMEWORK.md`.
+- adoption mode detector — `docs/agent-system/TARGET_ADOPTION_DETECTOR.md`.
+- обнаружение и инвентаризация файлов `source`/`template`/`target_generated`/`journal`/`generated` —
+  `docs/agent-system/ADOPTION_TRANSFER_MANIFEST.yml`; trigger-specific overlays
+  — root `README.md` и `docs/agent-system/METHODOLOGY_MAP.md` →
+  `Mandatory overlays by trigger`.
+
+Пункты ниже сохранены полностью как проверяемый список.
+
+## Идентичность repository
+
+- [ ] Repository name заменен на имя target repository.
+- [ ] Repository visibility подтверждена отдельно от methodology repository.
+- [ ] Project purpose переписан под target repository.
+- [ ] Public/private publication constraints зафиксированы.
+- [ ] Private data не переносится в public methodology repository.
+- [ ] `agent-system-development` описан как methodology/template repository, а не как центральный repository управления target repository.
+
+## Шапка задачи исполнителя (engine)
+
+- [ ] Задачи для `engine` формулируются на русском языке.
+- [ ] Шапка использует формат `Задача для <роль>: <task-id>`.
+- [ ] `<роль>` является vendor-neutral ролью назначенного исполнителя.
+- [ ] `<task-id>` связан с GitHub issue, Pull Request, task id или внутренним номером работы проекта.
+- [ ] Шапка содержит запуск, модель, reasoning, режим работы и причину выбора режима.
+
+## Модель веток (branch model)
+
+- [ ] Определен lifecycle mode: `new empty bootstrap` или `existing adoption`.
+- [ ] Определена selected branch model.
+- [ ] Фактические branches target repository проверены.
+- [ ] Выбрана модель `developer`, `develop`, `main`-only flow или другая.
+- [ ] Для `standard developer workflow` подтвержден `developer`.
+- [ ] Если `developer` отсутствовал, bootstrap creation явно разрешен и зафиксирован.
+- [ ] `Fallback-to-main` запрещен для `standard developer workflow`.
+- [ ] `BRANCH_POLICY.md` адаптирован под target repository.
+- [ ] `WORKFLOW.md` и `PR_WORKFLOW.md` адаптированы.
+- [ ] Task templates используют реальные branch names.
+- [ ] GitHub Actions branch filters проверены.
+- [ ] Target repository включает commit-language / Russian-first enforcement на базе существующих tools: `validate_commit_message.py` и/или `russian_first_lint.py`.
+- [ ] При runtime/CI-adoption target repository заводит собственный CI-check для commit metadata; workflow не копируется verbatim из `.github/**` methodology repository.
+
+## Документы состояния (state documents)
+
+- [ ] `CURRENT_STATE.md` переписан по фактам target repository.
+- [ ] `NEXT_STEPS.md` переписан по текущему плану target repository.
+- [ ] `DECISION_LOG.md` содержит только решения target repository.
+- [ ] Template repository state не скопирован verbatim.
+- [ ] Worktree paths заменены на target repository paths.
+
+## Набор governance для проекта (project governance pack)
+
+- [ ] `PROJECT_CONSTITUTION.md` создан по фактам target repository.
+- [ ] Mission и success criteria зафиксированы.
+- [ ] Current strategic goal ровно одна и актуальна.
+- [ ] Out-of-scope явно запрещает новые продукты, платформы, сервисы и направления без approval.
+- [ ] Decision Authority содержит Level 1 Implementation, Level 2 Subsystem, Level 3 Architecture и Level 4 Project Strategy.
+- [ ] Level 3+ требует explicit user approval.
+- [ ] Scope Expansion Control содержит No scope expansion, Minor scope expansion и Major scope expansion.
+- [ ] Major scope expansion требует остановки и решения пользователя.
+- [ ] `PROJECT_DASHBOARD.md` создан или адаптирован.
+- [ ] `ROADMAP.md` создан или адаптирован.
+- [ ] `BACKLOG.md` создан.
+- [ ] `CURRENT_STATE.md` переписан по фактам target repository.
+- [ ] `NEXT_STEPS.md` отражает текущий план.
+- [ ] `DECISION_LOG.md` не скопирован verbatim.
+- [ ] `PROJECT_GUARDRAILS.md` фиксирует goal, non-goals и forbidden scope.
+- [ ] `ENGINE_REGISTRY.md` отделяет agent roles от engines.
+- [ ] `ENGINE_REGISTRY.md` содержит Agent Authority Matrix: allowed scope, forbidden scope и approval required.
+- [ ] Branch pattern не содержит vendor/tool names.
+- [ ] После PR обновляются state docs.
+
+## Чеклист governance-review (governance review checklist)
+
+- [ ] Изменение соответствует mission.
+- [ ] Изменение соответствует current strategic goal.
+- [ ] Изменение не нарушает out-of-scope.
+- [ ] Изменение не меняет architecture level без approval.
+- [ ] Требуется ли explicit user approval проверено.
+
+## Включение external/code review
+
+- [ ] Выбрана reviewer-роль: `code-reviewer-01`, `qa-reviewer-01` или `security-reviewer-01`.
+- [ ] Имя исполнителя (engine) отделено от role name.
+- [ ] Branch namespace использует `work/<role>/*`.
+- [ ] Путь отчёта является target-local.
+- [ ] Review-only scope подтверждён.
+- [ ] Исправления вынесены в отдельные implementation PR.
+- [ ] Vendor-specific branches/reports отсутствуют.
+- [ ] Sensitive grep result выводится только filename-only.
+- [ ] Отчёт использует категории findings: Critical, Important, Optional.
+
+## Языковая согласованность
+
+- [ ] Governance docs используют один основной человеческий язык.
+- [ ] Для русскоязычных проектов governance docs написаны на русском.
+- [ ] Prompts исполнителя (engine) и agent reports написаны на русском.
+- [ ] English сохраняется только для paths, commands, code identifiers, config keys, package names, API names и vendor/tool names.
+- [ ] Commit metadata target repository соблюдает Russian-first: тема и тело commit на русском; English только для identifiers, paths, commands, branch names, config keys, package names, API/tool names и literal external names.
+- [ ] Смешанные языковые sections либо обоснованы, либо нормализованы.
+
+## Согласованность комментариев
+
+- [ ] Новые или изменённые scripts содержат русские комментарии для неочевидных и safety-critical lines/blocks.
+- [ ] Команды Git, branch, push, merge, deletion, remote и security-check прокомментированы.
+- [ ] Workflow/config files используют комментарии там, где формат поддерживает comments.
+- [ ] Форматы без comments используют соседнюю документацию или schema descriptions.
+- [ ] Comments объясняют, что делает line/block и почему он существует.
+- [ ] Comments не содержат secrets, private data или downstream project names.
+
+## Свежесть методологии
+
+- [ ] Оркестратор проверил stable methodology reference перед подготовкой engine task: `origin/main` / `main`, release tag или явно заданный snapshot.
+- [ ] `methodology_reference` содержит `source_ref`, `stable_only: true`,
+  `source_commit`, `reference_type` и `checked_at`.
+- [ ] Исполнитель (engine) не использовал `developer`, `work/*`, dirty local methodology tree или open methodology PR branch как source of truth для downstream.
+- [ ] Для чтения methodology repository не выполнялись `git switch`, `git checkout`, `git pull`, `git reset`, `git clean` или `git stash` в рабочем methodology repository.
+- [ ] Если stable reference check невозможен, ограничение зафиксировано в отчёте, а задача остановлена до source substitution.
+- [ ] Methodology feedback нейтрален и не раскрывает private data.
+
+## Согласованность transfer manifest
+
+- [ ] Transfer manifest не содержит противоречий между reusable templates и target-adapted files.
+- [ ] Reusable source templates отделены от materialized target files.
+- [ ] Adoption task использует `ADOPTION_TRANSFER_MANIFEST.yml` как discovery map, а не отдельный ручной список файлов.
+- [ ] Если trigger требует overlays, они выбраны по `Mandatory overlays by trigger` в root `README.md` и `METHODOLOGY_MAP.md`.
+
+## Безопасность (security)
+
+- [ ] `.env` не читался и не переносился.
+- [ ] `.env.*` не переносились, кроме безопасного `.env.example`.
+- [ ] `.venv/`, `data/`, `runtime/`, `dist/`, `backups/`, `exports/` не коммитятся.
+- [ ] Реальные credentials, tokens, passwords и API keys отсутствуют.
+- [ ] Sensitive grep выполнялся только filename-only.
+- [ ] Matching lines sensitive grep не печатались.
+
+## Режим adoption (adoption mode)
+
+- [ ] Перед adoption выполнен `TARGET_ADOPTION_DETECTOR`.
+- [ ] Detector выбрал Variant A/B/C или STOP с reasons и required preconditions.
+- [ ] Dirty target tree, private data risk или unstable methodology source приводят к STOP.
+- [ ] Target-specific journal/history/state не перезаписываются.
+- [ ] Выбран режим `audit-only`, `docs-only adoption` или `runtime adoption`.
+- [ ] Для первого dry run выбран `audit-only`, если пользователь не решил иначе.
+- [ ] Minimal first PR создает только `docs/agent-system/ADOPTION_AUDIT.md` (target-local; канон-шаблон: `docs/agent-system/templates/ADOPTION_AUDIT_TASK_TEMPLATE.md`).
+- [ ] Docs-only adoption не содержит runtime changes.
+- [ ] Runtime adoption имеет отдельное архитектурное решение, ветку и PR.
+
+## Проверка (review)
+
+- [ ] `ADOPTION_TRANSFER_MANIFEST.yml` применен как transfer map.
+- [ ] Local `AGENTS.md` target repository имеет приоритет.
+- [ ] Russian-first policy перенесена в target `AGENTS.md` или эквивалентные target instructions, если scope менял инструкции.
+- [ ] PR title/body, commit message, TASK/RESULT/INDEX, final report и review summary Russian-first.
+- [ ] Commit-language gate включён в target checks или явно зафиксирован как runtime/CI-adoption follow-up с owner, trigger и ожидаемыми tools.
+- [ ] Ссылки на methodology repository не раскрывают private data.
+- [ ] Final report содержит Methodology feedback.
+- [ ] Methodology feedback сформулирован нейтрально.
+- [ ] Проверено отсутствие verbatim copy template state.

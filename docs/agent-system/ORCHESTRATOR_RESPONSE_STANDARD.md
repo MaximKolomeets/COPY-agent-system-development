@@ -1,0 +1,541 @@
+# ORCHESTRATOR_RESPONSE_STANDARD
+
+> Adapter layer: этот стандарт описывает применение роли `orchestrator` через любой chat-интерфейс по выбору архитектора. Canonical vendor-neutral правила находятся в `ROLE_MODEL.md`, `WORKFLOW.md`, `ENGINE_ENTRYPOINT.md` и `LANGUAGE_POLICY.md`. Не использовать имя продукта или инструмента как role name, branch namespace, task id или report filename.
+
+## Назначение
+
+Этот стандарт описывает, как оркестратор должен формировать ответы, если из ответа рождается задача для `engine`.
+
+Цель стандарта - сделать так, чтобы пользователь мог скопировать один полный prompt для `engine` одним действием и вставить его без ручного сбора цели, команд, ограничений, проверок и формата отчета из разных частей ответа.
+
+В новом project chat оркестратор сначала применяет короткий operating contract:
+
+```text
+docs/agent-system/ORCHESTRATOR_OPERATING_CONTRACT.md
+```
+
+Если задача является только status/check/cleanup, применяется Operational Fast Lane. Если задача меняет файлы, создает PR или требует воспроизводимого scope, оркестратор готовит self-contained блок для исполнителя (engine) по этому стандарту. Если блок для исполнителя (engine) становится слишком длинным, оркестратор использует Task File Handoff Mode по `docs/agent-system/TASK_FILE_HANDOFF_CONTRACT.md`.
+
+Во всех блоках для исполнителя (engine) действует `docs/agent-system/LANGUAGE_POLICY.md`: `engine` должен писать final report, TASK/RESULT/INDEX fields и descriptions на русском языке, кроме технических identifiers, commands, paths, filenames, branch names, config keys, API names, package names, vendor/tool names и literal external names. Commit subject/body и PR title/body тоже должны быть Russian-first: conventional prefix допустим, смысловой текст после него пишется по-русски.
+
+Для target/downstream задач действует `docs/agent-system/STABLE_METHODOLOGY_REFERENCE_POLICY.md`: methodology source по умолчанию `origin/main` / `main`; release tag или published Source/cloud snapshot используется только если архитектор явно задал это в задаче. `developer`, `work/*`, dirty local methodology tree и open methodology PR branch не являются source of truth для downstream.
+
+Перед формированием adoption/source-update task оркестратор применяет `docs/agent-system/TARGET_ADOPTION_DETECTOR.md`: выбирает Variant A/B/C или STOP, не читает private data, не перезаписывает target-specific journal/history/state и требует stable methodology source.
+
+Перед формированием file-changing task оркестратор применяет `docs/agent-system/QUALITY_FIRST_WORKFLOW.md`: включает Definition of Ready, проверяемые acceptance criteria, self-review before PR, PR body quality check, expected reviewer mode и blocker-ID based fix-pass.
+
+Для substantive task оркестратор обязан применять
+`AUTONOMOUS_TERMINAL_EXECUTION_PROTOCOL.md`: указать два terminal outcome,
+recoverable-failure rule, closed STOP taxonomy, adaptive scope envelope и
+отдельные budgets reruns/readiness/CI/integration. Отдельный failed check не
+является terminal outcome без такой классификации.
+
+Если prompt является continuation, он обязан явно содержать task ID, branch,
+expected HEAD или PR relation, exact permitted dirty paths и незавершённый шаг.
+При отсутствии любого из этих данных оркестратор обязан выдать `STOP`, а не считать
+dirty tree допустимым; канон — `EXECUTION_CONTINUATION_POLICY.md`.
+
+Новые блоки для исполнителя (engine), которые меняют repository files, создают PR или описывают substantive/tooling/docs-only/review/fix-pass/release/adoption task, должны включать fenced YAML block `task_contract` по `docs/agent-system/TASK_CONTRACT.md`. В нём явно фиксируются mode, execution_mode, repository, working_branch, allowed_files, forbidden_files, policies, required checks и STOP conditions. Маленькая Fast Lane проверка без write-action, PR и journal trace может идти без `task_contract`.
+
+Если `task_contract` присутствует, он является source of truth для mode/scope/checks/STOP, а prose остаётся human explanation. Если contract и prose конфликтуют, orchestrator должен направить engine на `STOP` и запрос решения архитектора, а не выбирать одну из версий молча.
+
+File-changing engine-блоки должны требовать accounting-поля по
+`docs/agent-system/TIME_ACCOUNTING_POLICY.md` и
+`docs/agent-system/COST_TRACKING_POLICY.md`: `time_spent`, `actor_type`, `role`,
+`time_source`, `time_report_confidence`, `human_time_reported` при human/hybrid
+участии, token/cost fields и колонку `Time` в `INDEX.md`.
+
+## Когда применяется стандарт
+
+Стандарт применяется, когда оркестратор:
+
+- готовит задачу для `engine`;
+- формирует adoption task для target repository;
+- предлагает отдельную задачу для доработки methodology repository;
+- выводит ручные terminal-команды рядом с engine prompt;
+- описывает audit, docs-only adoption, runtime adoption или methodology feedback.
+
+Если ответ не содержит задачи для `engine`, стандарт используется как ориентир для ясности ответа, но сам блок для исполнителя (engine) не обязателен.
+
+## Главное правило
+
+Одна engine-задача = один самодостаточный copy/paste-блок.
+
+Если оркестратор дает задачу для `engine`, все входные данные для выполнения этой engine-задачи должны быть внутри одного fenced code block с заголовком `Блок для исполнителя (engine) — копировать целиком`.
+
+Все данные engine, которые нужны для выполнения задачи, должны оставаться внутри этого блока.
+
+Пользователь не должен искать недостающие команды, ограничения, ветки, разрешенные файлы, запрещенные файлы, проверки, STOP-условия или требования к отчету в других разделах ответа.
+
+## Что считается данными для engine
+
+Данными для `engine` считаются:
+
+- цель задачи;
+- контекст;
+- путь к engine task file;
+- путь к expected engine result file;
+- URL repository;
+- локальный путь, если применимо;
+- базовая ветка;
+- рабочая ветка;
+- роль агента;
+- режим запуска;
+- рекомендуемый режим исполнения:
+  - launch mode / запуск;
+  - model / модель;
+  - reasoning;
+  - execution mode / режим;
+  - why this mode is required / почему;
+- проверенный execution baseline (Verified execution baseline):
+  - полное имя repository;
+  - локальный путь, если применимо;
+  - базовая ветка;
+  - рабочая ветка;
+  - проверенное состояние ветки;
+  - latest relevant PR numbers/statuses, если применимо;
+  - release PR status, если применимо;
+  - sync PR status, если применимо;
+  - latest known merge commit SHA, если доступен;
+  - open PR state, если relevant;
+   - источник проверки: GitHub connector / local git / данные пользователя;
+  - verification date/time;
+- команды предварительной проверки;
+- разрешенные файлы;
+- запрещенные файлы;
+- конкретные изменения;
+- проверки;
+- STOP-условия;
+- Russian-first policy и допустимые исключения для технических identifiers;
+- stable methodology reference, если задача применяет methodology repository к target/downstream project;
+- политика journal finalization;
+- режим task source, если используется Task File Handoff Mode;
+- политика commit, push и PR;
+- требования к final report;
+- требования к time/cost accounting в TASK/RESULT/INDEX;
+- дополнительные ограничения безопасности.
+
+Все эти данные должны быть внутри блока для исполнителя (engine), если без них `engine` не сможет корректно выполнить задачу.
+
+Если оркестратор перед блоком для исполнителя (engine) пишет GitHub/local baseline, summary, current state, recommended mode, branch state, PR state, release/sync state или safety assumptions, и эти данные нужны `engine` для выполнения задачи, они должны быть продублированы внутри блока для исполнителя (engine).
+
+Нельзя оставлять уникальный execution context только в обычном тексте перед блоком для исполнителя (engine). В обычном тексте перед блоком допускаются пояснения для пользователя, но не обязательные execution data.
+
+## Что запрещено выносить за пределы блока для исполнителя (engine)
+
+За пределами блока для исполнителя (engine) нельзя оставлять:
+
+- обязательные команды;
+- ограничения scope;
+- разрешенные файлы;
+- запрещенные файлы;
+- проверки;
+- STOP-условия;
+- требования к отчету;
+- branch policy;
+- политика commit/push/PR;
+- сведения, без которых `engine` не поймет задачу.
+
+Вне блока для исполнителя (engine) можно давать только короткий вывод, контекст для пользователя, ссылки, цитаты и пояснения, которые не являются обязательными execution data.
+
+## Защита перехода из Fast Lane в блок для исполнителя (engine)
+
+Ответ оркестратора может использовать Operational Fast Lane только пока остается read-only/status/cleanup-only.
+
+Если в ходе анализа оркестратор решает, что `engine` должен изменить repository files, обновить PR body, обновить journal artifacts, сделать commit, push, создать PR или исправить review findings через file edits, оркестратор обязан прекратить Fast Lane.
+
+До отправки пользователю actionable часть должна быть переписана как один полный self-contained блок для исполнителя (engine) с заголовком `Блок для исполнителя (engine) — копировать целиком`.
+
+Запрещен гибридный ответ, где Fast Lane text содержит implementation instructions, требующие write actions от `engine`.
+
+Триггером является рекомендуемое действие, а не исходная формулировка пользователя. Даже если пользователь попросил только review/status, как только оркестратор рекомендует write changes, ответ становится задачей для исполнителя (engine).
+
+Read-only review может завершиться фразой "нужна отдельная задача для исполнителя (engine)" только если:
+
+- полный блок для исполнителя (engine) включен в ответ;
+- или оркестратор явно запрашивает решение пользователя, потому что scope/approval недостаточны.
+
+Если следующий шаг уже ясен, безопасен и не требует уточнения, оркестратор должен дать полный блок для исполнителя (engine), а не неформальное указание "пусть исполнитель (engine) поправит".
+
+## Языковая граница блоков для исполнителя (engine)
+
+Блоки для исполнителя (engine) являются user-facing task descriptions и должны соблюдать Russian-first policy.
+
+Пользовательские заголовки и описания внутри блока для исполнителя (engine) должны быть на русском языке.
+
+Английский допускается только для technical identifiers, command names, flags, paths, filenames, branch names, config keys, API names, package names, vendor/tool names, SHA values и literal external names.
+
+Запрещено использовать англоязычные служебные заголовки, если есть нормальная русская формулировка.
+
+Примеры запрещенных пользовательских заголовков:
+
+- `Required changes`;
+- `Checks`;
+- `Expected checks result`;
+- `Commit/push policy`;
+- `Final report requirements`;
+- `STOP conditions`;
+- `Allowed files`;
+- `Forbidden files`.
+
+Примеры правильных русских заголовков:
+
+- `Требуемые изменения`;
+- `Проверки`;
+- `Ожидаемый результат проверок`;
+- `Политика commit/push/PR`;
+- `Требования к финальному отчету`;
+- `STOP-условия`;
+- `Разрешенные файлы`;
+- `Запрещенные файлы`.
+
+Термины `engine`, `PR`, `commit`, `push`, `branch`, `merge`, `SHA`, `Local only`, `Reasoning`, `Agent` допустимы как technical terms или literal values, но не должны заменять русские пользовательские описания там, где описание можно написать по-русски.
+
+## Блок для исполнителя (engine) — копировать целиком
+
+Блок для исполнителя (engine) должен быть одним fenced code block.
+
+Внутри него должны быть:
+
+- обязательная шапка задачи;
+- путь к engine task file или ссылка на существующий task file;
+- путь к expected engine result file;
+- цель;
+- контекст;
+- URL repository;
+- локальный путь;
+- базовая ветка;
+- рабочая ветка;
+- разрешенные файлы;
+- запрещенные файлы;
+- точные изменения;
+- предварительная проверка;
+- проверки;
+- STOP-условия;
+- политика journal finalization;
+- режим task source, если используется Task File Handoff Mode;
+- рекомендуемый режим исполнения;
+- проверенный execution baseline (Verified execution baseline) или явное `not applicable`;
+- политика commit/push/PR;
+- формат финального отчета.
+
+Нельзя использовать вложенные fenced code blocks внутри блока для исполнителя (engine). Для внутренних команд используются маркеры `BEGIN POWERSHELL`, `END POWERSHELL`, `BEGIN BASH`, `END BASH`.
+
+## Предотправочный checklist для блока исполнителя (engine)
+
+Перед отправкой блока для исполнителя (engine) оркестратор проверяет:
+
+Если блок подготовлен как отдельный файл или буфер, перед отправкой выполнить
+машинную sanity-проверку:
+
+```text
+python docs/agent-system/tools/orchestrator_checklist.py <task-block-file>
+```
+
+Эта проверка является pre-send guard для типовых пропусков в copy/paste-блоке.
+Она не заменяет semantic review, `validate_task_contract.py` и
+`check_task_ready.py`.
+
+- [ ] Можно ли выполнить задачу, скопировав только один fenced code block?
+- [ ] Есть ли внутри блока рекомендуемый режим исполнения?
+- [ ] Есть ли внутри блока Verified execution baseline или явное `not applicable`?
+- [ ] Есть ли repository/base branch/working branch?
+- [ ] Есть ли разрешенные файлы?
+- [ ] Есть ли запрещенные файлы?
+- [ ] Есть ли checks?
+- [ ] Есть ли STOP-условия?
+- [ ] Есть ли commit/push/PR policy, если задача создает изменения?
+- [ ] Указан ли язык commit/PR metadata: commit subject/body и PR title/body — Russian-first, technical identifiers не переводятся, conventional prefix допустим?
+- [ ] Commit message указан по канону `LANGUAGE_POLICY`: conventional-scope `<тип>(agent-system):`, текст после `:` на русском, пустая строка перед телом, тело переносится около 72 символов и пунктами списка, строки `Journal seq:` и `Refs: PR #<n>`; финализирующий коммит — `journal(agent-system): ...`.
+- [ ] Для target/downstream задачи указан ли stable `methodology_reference`: `origin/main` / `main`, release tag или явно заданный snapshot, без `developer`/`work/*`?
+- [ ] Если задача меняет файлы, создаёт PR или выполняет substantive/tooling/docs-only/review/fix-pass/release/adoption flow, есть ли fenced YAML `task_contract` по `docs/agent-system/TASK_CONTRACT.md`?
+- [ ] Требует ли блок от engine заполнить accounting fields по
+  `TIME_ACCOUNTING_POLICY.md` и `COST_TRACKING_POLICY.md`, включая `time_spent`,
+  `human_time_reported` при human/hybrid участии, token/cost fields и колонку
+  `Time` в `INDEX.md`?
+- [ ] Если `task_contract` есть, совпадают ли его mode/scope/checks/STOP с prose; при конфликте указан ли `STOP`?
+- [ ] Есть ли требования к финальному отчету?
+- [ ] Нет ли обязательных execution data вне блока?
+- [ ] Если ответ просит `engine` изменить файлы, есть ли ровно один полный блок для исполнителя (engine) для этой задачи?
+- [ ] Остались ли write-action instructions вне блока для исполнителя (engine)?
+- [ ] Если Fast Lane/status review выявил необходимость file changes, был ли Fast Lane остановлен и заменен полным блоком для исполнителя (engine)?
+- [ ] Находятся ли PR body update, journal update, commit/push и review follow-up instructions внутри блока для исполнителя (engine)?
+- [ ] Все ли пользовательские заголовки блока для исполнителя (engine) написаны на русском?
+- [ ] Остался ли английский только в технических identifiers, commands, paths, filenames, branch names, config keys, API names, package names, vendor/tool names, SHA values и literal external names?
+- [ ] Нет ли англоязычных служебных заголовков, если для них есть русская формулировка?
+- [ ] Если пользователь сообщил о merge/release/sync, проверены ли GitHub state и применимый boundary context?
+- [ ] Если ordinary PR merged, не создаётся ли отдельная closure-задача только ради отсутствия `merged_at` / merge commit SHA в RESULT?
+- [ ] Если release/sync выполнены, записаны ли release/sync факты?
+- [ ] Если journal stale, отличён ли release/audit/explicit boundary blocker от ordinary terminal state и accepted terminal fold?
+- [ ] Если найден только accepted terminal fold, не создаётся ли новая closure-задача только ради него?
+- [ ] Если generated `--check` на Windows завис в wrapper/parallel runner, указан ли read-only sequential fallback (`cmd /c python <generator> --check`) и требование записать команду + exit code в RESULT?
+- [ ] Если no-output `rg`/wrapper scan на Windows завис, указан ли deterministic fallback (`Select-String`/PowerShell/Python/sequential command) и требование записать команду + exit code в RESULT без печати sensitive matches?
+- [ ] Если задача меняет файлы или готовит fix-pass/review-comment, включён ли recommended ready-gate `python docs/agent-system/tools/check_task_ready.py --base origin/developer`?
+- [ ] Если задача меняет docs/journal/templates/tooling, включён ли semantic completeness checklist по `docs/agent-system/SEMANTIC_COMPLETENESS_GATES.md`?
+- [ ] Если блок готовился как файл или буфер, выполнен ли `tools/orchestrator_checklist.py` или явно указано, почему pre-send tool неприменим?
+- [ ] Если задача создаёт acceptance spec, blocker matrix, fixture plan, contract tests или generator scaffold, указан ли pattern `docs/agent-system/ACCEPTANCE_SPEC_COMPLETENESS_PATTERN.md`?
+- [ ] Если задача финализирует journal, указана ли политика `docs/agent-system/JOURNAL_FINALIZATION_POLICY.md`: finalized TASK/RESULT/INDEX без deferred finalization markers?
+- [ ] Если surfaced generated/cloud EOL-only шум, указан ли read-only guard `python docs/agent-system/tools/generated_eol_guard.py --base origin/developer` и distinction между `content_changed` blocker и EOL/whitespace-only noise?
+- [ ] Если что-то осталось вне блока, блок переписан до ответа пользователю.
+
+## Журнал исполнителя (engine)
+
+Каждая задача для `engine` должна иметь task file path или ссылку на уже существующий task file в `docs/agent-system/engine-journal/input/`.
+
+Каждый ответ `engine` должен вернуть result file в `docs/agent-system/engine-journal/output/`.
+
+Task/result files связываются единым sequence number и task id по contract:
+
+```text
+docs/agent-system/ENGINE_JOURNAL_CONTRACT.md
+```
+
+Task/result files являются append-only artifacts. Их нельзя удалять, перезаписывать или переиспользовать без отдельного решения пользователя.
+
+Если задача создается до materialization task file, блок для исполнителя (engine) должен содержать `Engine task file` и `Expected engine result file`, чтобы `engine` создал оба artifacts в рамках разрешенного scope.
+
+Блок для исполнителя (engine) должен содержать обязательное поле `Journal finalization policy`: `engine` финализирует `RESULT` и `INDEX` после PR creation, заменяет journal placeholders фактическими значениями и делает follow-up commit/push, если PR URL или final commit SHA стали известны после materialization. Finalized journal surface должен соблюдать `docs/agent-system/JOURNAL_FINALIZATION_POLICY.md`.
+
+Если задача может завершиться merge/release/sync, блок для исполнителя (engine) должен ссылаться на `docs/agent-system/ENGINE_JOURNAL_CONTRACT.md` → «Closure policy». Для ordinary PR оркестратор фиксирует ordinary terminal state (`architect_ready` / `human_merge_allowed`) и не планирует отдельный closure PR после human merge. GitHub PR metadata является source of truth для `merged_at`, merge commit SHA, PR state и PR URL. Boundary reconciliation требуется только перед release/audit boundary, при explicit architect request, для batch reconciliation или при противоречивых facts внутри такого scope.
+
+Для substantive task блок должен явно указывать agent-owned task branch workflow: `work/<role>/<task-id>` как основная task branch, внутренние `work/<role>/<task-id>/*` только при необходимости, один итоговый PR в `developer`, review feedback исправляется в той же branch, engine не запрашивает подтверждение после каждого микрошага до STOP-условия.
+
+Если задача предполагает review/fix/re-review, блок должен явно задавать review autoloop: `max_review_cycles`, reviewer feedback только в PR агента, engine fix-pass в той же task branch, `architect:ready-to-merge` после approve-equivalent и STOP при conflict/secrets-risk/forbidden paths/failed checks/scope drift/max cycles. Feedback должен требовать blocker IDs, class `machine-verifiable | semantic | mixed`, `verification_command`, `can_engine_fix_without_architect` и `re_review_policy`; machine-only blockers закрываются passed machine-check closure, semantic/mixed blockers идут на minimal re-review. Если formal own-PR review невозможен, использовать verdict comment fallback. Канон: `docs/agent-system/REVIEW_AUTOLOOP.md`.
+
+Для задач, которые меняют repository files, открывают PR или выполняют engine fix-pass, блок должен рекомендовать read-only ready-gate:
+
+```text
+python docs/agent-system/tools/check_task_ready.py --base origin/developer
+```
+
+Эта команда не заменяет task-specific checks, но агрегирует branch guard, changed files summary, `git diff --check`, conditional generated parity checks, generated EOL guard, filename-only sensitive scan, strict added-line secret scan и TASK/RESULT placeholder scan. Для machine-verifiable blockers она может быть `verification_command`, если blocker покрыт её проверками; semantic/mixed blockers требуют reviewer re-review по канону autoloop.
+
+Final report `engine` должен подтверждать:
+
+- `RESULT finalized: yes`;
+- `INDEX finalized: yes`;
+- `Source Delta present: yes` по канону `docs/agent-system/templates/TASK_HEADER_COMMON.md` → «Source Delta»;
+- `context-handoff present: yes` по канону `docs/agent-system/templates/TASK_HEADER_COMMON.md` → «Orchestrator context handoff»;
+- `No journal placeholders: yes`;
+- язык final report: русский.
+
+Оркестратор обязан ретранслировать Source Delta архитектору в своём ответе/передаче. Если final report или RESULT исполнителя (engine) не содержит «Source Delta», оркестратор запрашивает у исполнителя (engine) дополнение отчёта или journal-result, а не реконструирует таблицу молча.
+
+Оркестратор обязан ретранслировать архитектору строку «Архитектору — загрузить в контекст оркестратора: …» и подтверждать `context-handoff present: yes`. Если final report или RESULT исполнителя (engine) не содержит per-task context handoff, оркестратор запрашивает дополнение отчёта или journal-result. Footer должен использовать numbered cloud-имена из `docs/agent-system/cloud/00_README.md` и перечислять только bundle-файлы; небандловые tooling/source-файлы остаются в «Source Delta» и не попадают в context-load строку. Базовый состав context-load bundle не дублируется здесь; авторитетный канон: `docs/agent-system/ORCHESTRATOR_OPERATING_CONTRACT.md` → «Architect → Orchestrator context handoff».
+
+## Closure policy после merge/release/sync
+
+Любой ответ оркестратора после сообщения пользователя о merge/release/sync должен разделять GitHub PR state и target journal RESULT/INDEX state.
+
+Для ordinary PR GitHub merge закрывает post-merge facts через GitHub PR metadata. Journal не обязан получать отдельный post-merge closure stamp после каждого merge, если до merge зафиксированы PR URL, reviewed head SHA и `architect_ready` / `human_merge_allowed`. Lifecycle-only `terminal-fold accepted` является финальным допустимым состоянием и не blocker.
+
+Если задача находится под release/audit boundary, explicit architect request, batch reconciliation или содержит противоречивые journal facts внутри такого scope, оркестратор должен дать self-contained блок для boundary reconciliation только для затронутых entries. Не выдавать новую closure-задачу только ради ordinary PR, отсутствия `merged_at` / merge commit SHA в RESULT или accepted terminal fold. После merge ordinary PR оркестратор синхронизирует `developer` и переходит к следующей задаче; reconciliation откладывается до release/audit boundary или явного запроса архитектора.
+
+## Локальные действия после PR/merge
+
+Если задача создала PR, была смержена, обновила remote `developer`/`main` или обнаружила рассинхрон локальной ветки с `origin/*`, финальный ответ оркестратора или final report `engine` должен содержать конкретный блок:
+
+```text
+## Локальные действия после PR/merge
+```
+
+Полный формат блока, команды для sync `developer`/`main`, диагностика рассинхрона и запрет `git reset --hard` описаны в каноническом разделе `docs/agent-system/WORKFLOW.md`.
+
+Closure-блок для исполнителя (engine) должен включать:
+
+- target repository;
+- work PR URL/status/merge commit SHA/`merged_at`;
+- release PR URL/status/merge commit SHA/`merged_at` или `не применимо`;
+- sync PR URL/status/merge commit SHA/`merged_at` или `не применимо`;
+- разрешенные файлы только для `RESULT`, `INDEX` и безопасных state docs, если они нужны;
+- запрет runtime, Docker, CI, secrets, private data и downstream-specific details;
+- проверки stale placeholders и pre-merge statuses в `RESULT`/`INDEX`;
+- финальный отчет на русском языке.
+
+## Ответ Task File Handoff
+
+Ответ Task File Handoff используется, когда блок для исполнителя (engine) становится слишком длинным, задача может забить context window или long task source of truth должен жить в Git history target repository.
+
+Ответ оркестратора в этом режиме должен содержать:
+
+- repository;
+- branch;
+- путь к task file;
+- commit SHA или blob SHA task file, если известно;
+- короткий bootstrap prompt для исполнителя (engine);
+- напоминания по безопасности;
+- указание, что TASK file является source of truth;
+- указание финализировать RESULT/INDEX после PR creation;
+- инструкция применить Closure policy после merge/release/sync: ordinary PR не требует отдельного closure PR; boundary reconciliation только перед release/audit boundary, при explicit architect request или для batch reconciliation;
+- напоминание Russian-first для final report и journal artifacts.
+
+Если GitHub connector доступен и пользователь явно разрешил, оркестратор может создать только task-file-only branch/commit с TASK file. Оркестратор не должен менять runtime, templates, RESULT, INDEX, governance files или другие docs в этом staging commit.
+
+Bootstrap prompt не заменяет TASK file. Если TASK file и bootstrap prompt конфликтуют, `engine` должен написать `STOP`.
+
+## Ручная работа пользователя
+
+Ручная работа выводится только для действий, которые должен выполнить пользователь, а не `engine`.
+
+Ручные действия должны быть явно помечены как ручные. Они не должны содержать данных, без которых `engine` не сможет выполнить свою задачу.
+
+Если ручные действия нужны до запуска `engine`, они должны быть либо внутри блока для исполнителя (engine) как preflight для `engine`, либо в отдельном разделе `Ручная работа до запуска engine`. Даже в этом случае блок для исполнителя (engine) должен оставаться самодостаточным.
+
+## Режим Operational Fast Lane
+
+Для manual checks/cleanup не нужен блок для исполнителя (engine), если задача не меняет файлы repository, не создает PR и не затрагивает secrets/private data.
+
+Operational Fast Lane используется для простых status checks, cleanup, post-engine result checks и release readiness sanity checks. Команды даются одним terminal block, а ответ не растягивается на много уточняющих сообщений.
+
+Если GitHub connector доступен, оркестратор сам проверяет PR/open/merged/branch state и не просит пользователя присылать длинные логи при чистом результате.
+
+Post-merge checks в Operational Fast Lane должны включать GitHub PR state: рабочий PR merged, release PR merged при наличии, sync PR merged при наличии, stale work branches очищены или отмечены. Для ordinary PR отсутствие post-merge closure stamp, `merged_at` или merge commit SHA в RESULT не является blocker, если есть PR URL, reviewed head SHA и `architect_ready` / `human_merge_allowed`. Для release/audit/explicit boundary reconciliation contexts `RESULT` и `INDEX` не должны оставаться в статусах `PR open`, `ready for review`, `draft open`, `pending at file materialization` или `see Engine final report`, кроме lifecycle-only `terminal-fold accepted`.
+
+Если пользователь пишет `готово` после merge обычного PR, оркестратор проверяет GitHub PR metadata, синхронизирует `developer` при необходимости и переходит к следующей задаче без отдельного closure PR. Если substantive `RESULT` или `INDEX` stale под release/audit/explicit boundary reconciliation context или противоречит GitHub внутри такого scope, оркестратор не должен считать boundary закрытым: нужно запросить у `engine` docs-only reconciliation task с фактическими merge данными. Если остался только ordinary terminal state или accepted terminal fold, не запускать новую closure-задачу только ради него.
+
+Длинный блок для исполнителя (engine) нужен только для задач, которые меняют файлы, создают PR, выполняют adoption/bootstrap или требуют полного воспроизводимого scope.
+
+## Разделение ручной работы
+
+Одна ручная задача = один раздел = один terminal block.
+
+Нельзя смешивать несколько независимых ручных операций в одном terminal block, если пользователь должен выполнять их в разное время, в разных repositories или с разными правами.
+
+Нельзя помещать в один fenced code block и engine prompt, и manual terminal commands, если эти команды предназначены пользователю, а не `engine`.
+
+## Несколько engine или repository в одном ответе
+
+Если ответ содержит две независимые engine-задачи, каждая задача получает отдельный самодостаточный copy/paste-блок.
+
+Например, задача для target repository и задача для methodology repository должны быть разными блоками для исполнителя (engine). Нельзя делать один блок для исполнителя (engine) неполным из-за того, что часть данных находится в другом блоке.
+
+## Stable methodology reference для target/downstream
+
+Перед формированием задачи для target repository оркестратор должен проверить stable methodology reference, а не текущую рабочую ветку разработки методологии. По умолчанию это `origin/main` / `main`.
+
+Если `origin/main` недоступен или нужный файл в stable reference не читается, оркестратор должен явно сказать это пользователю и включить в блок для исполнителя (engine) `STOP` до выбора другого source. Если архитектор явно указал release tag или published Source/cloud snapshot, task использует именно его.
+
+Downstream task не должна выполнять `git switch`, `git checkout`, `git pull`, `git reset`, `git clean` или `git stash` в рабочем methodology repository ради чтения методологии. `git fetch --all --prune` допустим как read-refresh, если task permits network/sync. Dirty `agent-system-development/developer` или dirty `work/*` не является STOP для target task, если stable reference читается.
+
+В `task_contract` для downstream/adoption задач фиксировать:
+
+```yaml
+methodology_reference:
+  repository_full_name: project-owner/agent-system-development
+  local_path: ./review-workspace
+  source_ref: origin/main
+  stable_only: true
+  source_commit: <origin/main commit sha>
+  checked_at: <ISO-8601 timestamp>
+```
+
+После merge methodology PR в `developer` новые правила не видны downstream задачам, которые корректно читают `origin/main`; архитектор должен отдельно продвинуть `developer -> main`, если политика нужна downstream.
+
+## Синхронизация methodology repository перед выполнением
+
+Любой `engine`, который меняет methodology repository, должен перед изменениями синхронизировать локальную копию `agent-system-development` с GitHub.
+
+`engine`, который только применяет методологию к target/downstream repository, читает stable reference по разделу выше и не переключает рабочую methodology ветку.
+
+Если working tree не чистый, `engine` должен написать `STOP` и не перетирать локальные изменения.
+
+Если `origin/developer` отсутствует или pull fast-forward невозможен, `engine` должен написать `STOP` для methodology repository changes.
+
+После `git pull --ff-only origin <METHODOLOGY_BASE_BRANCH>` локальный `HEAD` methodology repository должен строго совпадать с `origin/<METHODOLOGY_BASE_BRANCH>`. Если значения отличаются, `engine` должен написать `STOP`, потому что локальная methodology branch содержит состояние, которого нет в remote source of truth.
+
+Если `engine` синхронизировал methodology repository в рамках задачи для target repository, он обязан вернуться в target repository через явный `cd <TARGET_REPOSITORY_LOCAL_PATH>` до проверки target remote, branch, working tree, файлов или выполнения изменений.
+
+## Методологический feedback block
+
+Если при работе с target repository выявлена необходимость доработки `agent-system-development`, оркестратор должен вывести отдельный самодостаточный блок для engine-разработчика methodology repository.
+
+Этот блок должен быть нейтральным и не должен раскрывать private downstream data, private repository URL, client data, customer data, credentials или internal code names.
+
+Перед созданием methodology task feedback должен пройти `docs/agent-system/DOWNSTREAM_FEEDBACK_SANITIZATION_POLICY.md`, а reusable loop описывается по `docs/agent-system/DOWNSTREAM_FEEDBACK_LOOP.md`. Methodology task не читает target repository, если это прямо не разрешено scope; target adoption не заявляется до `main`, release tag или published Source/cloud snapshot.
+
+В final report target repository такой вывод фиксируется как `Methodology repository improvement request`.
+
+## Сводка audit
+
+Ответ с audit-задачей должен требовать от `engine` краткий audit summary:
+
+- что проверено;
+- что найдено;
+- какие документы отсутствуют;
+- какие риски есть;
+- какой следующий PR рекомендуется;
+- нужен ли отдельный methodology feedback.
+
+Audit summary не заменяет полный audit artifact, если задача требует создать отдельный файл.
+
+## Правило language consistency
+
+Оркестратор и `engine` должны применять `docs/agent-system/LANGUAGE_POLICY.md` и проверять language consistency target docs.
+
+Все user-facing answers, final reports исполнителя (engine), TASK/RESULT/INDEX files, target-local methodology docs/templates и комментарии в файлах оформляются на русском языке.
+
+Английский сохраняется только для code identifiers, команд, flags, paths, filenames, branch names, config keys, API names, package names, vendor/tool names, GitHub terms и literal external names, если перевод ухудшает точность.
+
+Target project prompts должны включать Russian-first rule и требовать добавить его в target `AGENTS.md` или эквивалентные target instructions при adoption/update scope.
+
+Блок для исполнителя (engine) должен требовать от `engine` написать `STOP`, если target instructions конфликтуют с Russian-first policy и пользователь явно не разрешил другой язык для target repository.
+
+## Русский язык документации target repository
+
+После adoption audit и docs-only adoption целевые governance docs должны иметь один основной человеческий язык.
+
+Если repository ведется на русском, смешанные англо-русские описания либо нормализуются, либо явно объясняются в audit/report.
+
+## Запрет смешивания prompt, terminal commands и пояснений
+
+Prompt для исполнителя (engine), manual terminal commands и пояснения пользователю должны быть разделены.
+
+Prompt для исполнителя (engine) помещается в блок для исполнителя (engine). Ручные terminal-команды помещаются в отдельный раздел ручной работы. Пояснения остаются вне terminal blocks.
+
+## Definition of Done для ответа
+
+Ответ оркестратора считается готовым, если:
+
+- есть короткий вывод для пользователя;
+- каждая engine-задача имеет отдельный самодостаточный блок для исполнителя (engine);
+- внутри блока для исполнителя (engine) есть все execution data;
+- указан engine journal task/result path или причина, почему journal не применим;
+- manual steps отделены от блока для исполнителя (engine);
+- проверки и STOP-условия не потеряны вне блока;
+- methodology freshness check указан;
+- language consistency rule указан, если задача связана с adoption;
+- Russian-first policy указана для final report исполнителя (engine) и journal artifacts;
+- methodology feedback нейтрален и не раскрывает private data;
+- Closure policy проверена: ordinary PR не требует отдельного post-merge closure PR; boundary reconciliation явно ограничена release/audit/explicit request/batch reconciliation;
+- следующий шаг сформулирован явно.
+
+## Пример правильного ответа
+
+Правильный ответ:
+
+- коротко объясняет пользователю, что будет сделано;
+- выводит один раздел `Блок для исполнителя (engine) — копировать целиком`;
+- внутри одного fenced code block содержит цель, контекст, ветки, разрешенные файлы, запрещенные файлы, предварительную проверку, проверки, STOP-условия, политику commit/push/PR и final report;
+- ручную работу выводит отдельным разделом только если она действительно нужна пользователю.
+
+## Пример неправильного ответа
+
+Неправильный ответ:
+
+- часть цели оставляет до блока для исполнителя (engine);
+- часть команд оставляет после блока для исполнителя (engine);
+- разрешенные файлы или запрещенные файлы выносит в отдельный список вне блока;
+- делает несколько разрозненных блоков для одной engine-задачи;
+- смешивает manual terminal commands и engine prompt;
+- не указывает, как проверялась актуальность methodology repository.
+
+## Правила безопасности
+
+- Не добавлять private downstream names.
+- Не добавлять private repository URLs.
+- Не добавлять client data или customer data.
+- Не добавлять credentials, tokens, passwords, API keys или `.env`.
+- Не печатать matching lines sensitive grep.
+- Не читать `.env`.
+- Не менять `main` или `developer` напрямую без отдельного разрешения.
+- Не делать force push.

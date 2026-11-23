@@ -1,0 +1,40 @@
+# MANUAL_REVIEW_CHECKLIST
+
+- Проверить base branch.
+- Проверить head branch.
+- Проверить, что одна substantive task = одна основная task branch и один итоговый PR в `developer`; внутренние `work/<role>/<task>/*` допустимы только как sub-branches и не должны быть отдельными delivery PR.
+- Проверить changed files.
+- Проверить результат GitHub Actions.
+- Проверить, что forbidden files check прошел успешно.
+- Проверить, что commit message по канону `LANGUAGE_POLICY`: conventional-scope
+  `<тип>(agent-system):`, текст после `:` на русском, пустая строка перед телом,
+  тело переносится около 72 символов и пунктами списка, строки `Journal seq:` и
+  `Refs: PR #<n>`; финализирующий коммит — `journal(agent-system): ...`.
+- Если CI failed, не мержить без отдельного решения пользователя.
+- Проверить, что нет `.env`.
+- Проверить, что `.env.example`, если добавлен, не содержит реальных секретов.
+- Проверить, что нет `.venv/`, `data/`, `runtime/`, `dist/`, `backups/`, `exports/`.
+- Проверить, что нет credentials/tokens/passwords.
+- Проверить, что PR не добавляет реальные секреты.
+- Проверить, что PR не добавляет внутренние данные target implementation repository.
+- Проверить, что изменения подходят для public repository.
+- Проверить, что base branch выбран правильно:
+  - work branch -> developer;
+  - developer -> main.
+- Проверить, что нет vendor-specific agent names в именах папок.
+- Для review-only PR проверить, что branch name role-based, not vendor-based.
+- Для review-only PR проверить, что report filename role/task based, not vendor-based.
+- Для review-only PR проверить, что reviewer не modified production code.
+- Для активного work PR проверить, что review feedback должен исправляться engine в той же task branch; reviewer не создает отдельный PR для feedback без явного решения пользователя.
+- Если включён review autoloop, проверить `max_review_cycles`, текущий cycle count, статус `engine:ready-for-review` / `reviewer:changes-requested` / `architect:ready-to-merge`, и что STOP-условия из `docs/agent-system/REVIEW_AUTOLOOP.md` не нарушены.
+- Для review autoloop проверить, что blockers имеют IDs `B-01`..., class `machine-verifiable | semantic | mixed`, `verification_command`, `can_engine_fix_without_architect`, `required_fix_scope` и `re_review_policy`; machine-only blockers можно закрывать machine-check closure, semantic/mixed требуют minimal re-review.
+- Для review-only PR проверить, что findings categorized as Critical, Important, Optional.
+- Для review-only PR проверить, что sensitive grep output filename-only.
+- Для review-only PR проверить, что next implementation PRs proposed separately.
+- Проверить, что `CURRENT_STATE` обновлен, если изменилось состояние проекта.
+- Проверить, что `DECISION_LOG` обновлен, если принято архитектурное решение.
+- Проверить, что агентский отчет обновлен.
+- Проверить итоговый отчет исполнителя.
+- Если PR уже merged, проверить Closure policy по `docs/agent-system/ENGINE_JOURNAL_CONTRACT.md` → «Closure policy».
+- Для обычного work PR считать `merged; closure pending` допустимым до batch-closure перед release/audit/methodology boundary; не требовать отдельный closure PR без boundary/исключения.
+- Считать blocker, если сработал release gate, audit/review consistency gate, adoption/source-update, methodology boundary, завершение/пауза серии, явное closure-задание или противоречивые journal facts, а merged PR journal остается `PR open`, `ready for review`, `draft open`, содержит `pending at file materialization`/`see Engine final report` или `RESULT` closure-stamp не фиксирует merge commit SHA после обязательного closure-прохода, когда SHA доступен. `INDEX` проверяется как status + PR URL и не обязан содержать полный merge commit SHA.

@@ -1,0 +1,256 @@
+# ADOPTION_AUDIT_TASK_TEMPLATE
+
+## Mandatory header
+
+```text
+Задача для <роль>: <task-id>
+
+Рекомендуемый режим исполнения:
+
+Роль: <функция в методологии: docs-maintainer | reviewer | dev-implementer | infra | source-steward | ...>
+Исполнитель: на усмотрение архитектора
+Reasoning effort: <низкий | средний | высокий>
+Запуск: <Local only | Cloud allowed | Hybrid>
+Режим: <Agent | Ask | Manual review>
+Почему: <краткое обоснование выбора режима и reasoning effort>
+Время начала выполнения (execution_started_at) [measured/engine]: <ISO-8601 timestamp with timezone>
+Время оркестрации, по факту (orchestration_time_reported) [reported/human, опционально]: <свободное значение или пусто>
+```
+
+Задача формулируется на русском языке. `<task-id>` должен быть связан с GitHub issue, Pull Request, task id или внутренним номером работы проекта.
+
+## Рекомендуемый режим исполнения
+
+Заполнить блок `Рекомендуемый режим исполнения` в mandatory header: роль / функция, исполнитель (на усмотрение архитектора), reasoning effort (низкий | средний | высокий), launch mode / запуск, execution mode / режим и why / почему.
+Заполнить execution-время по канону `docs/agent-system/templates/TASK_HEADER_COMMON.md` → «Execution timestamps»: measured `execution_started_at` обязательно для TASK; `orchestration_time_reported` опционально.
+
+## Verified Baseline
+
+- Repository:
+- Local path, если применимо:
+- Methodology repository:
+- Methodology source_ref:
+- Methodology source commit:
+- Methodology checked at:
+- Repository lifecycle mode:
+- Selected branch model:
+- Developer branch existence:
+- Fallback-to-main allowed:
+- Base branch:
+- Working branch:
+- Checked branch state:
+- Latest relevant PR numbers/statuses, если применимо:
+- Release PR status, если применимо:
+- Sync PR status, если применимо:
+- Open PR state, если relevant:
+- Verification source:
+- Verification date/time:
+
+## Проверка полноты copy/paste
+
+- [ ] Этот TASK/Engine block можно выполнить без чтения окружающего chat text.
+- [ ] Блок «Рекомендуемый режим исполнения» включён.
+- [ ] Verified baseline включён либо явно помечен как not applicable.
+- [ ] Repository/base branch/working branch включены.
+- [ ] Allowed files включены.
+- [ ] Forbidden files включены.
+- [ ] Checks включены.
+- [ ] STOP conditions включены.
+- [ ] Требования к final report включены.
+- [ ] Требование Source Delta задано ссылкой на `docs/agent-system/templates/TASK_HEADER_COMMON.md` → «Source Delta».
+- [ ] Весь необходимый execution context находится в этом блоке, а не только в окружающем chat text.
+
+## Task
+
+`<task title>`
+
+## Target repository
+
+`<owner/repository>`
+
+## Adoption mode
+
+`audit-only`
+
+## Base branch
+
+`<main or target base branch>`
+
+## Working branch
+
+`work/<role>/<task>`
+
+## Role
+
+`docs-maintainer-01`
+
+## Goal
+
+Использовать только engine journal scaffold/templates из methodology repository. Не копировать methodology operational history. Audit создает target-specific task/result files и target-specific index entry.
+
+Выполнить repository self-discovery, проверить language consistency и создать только `docs/agent-system/ADOPTION_AUDIT.md` plus engine journal artifacts для этой audit-задачи.
+
+Зафиксировать methodology reference, использованную для audit:
+
+```yaml
+methodology_reference:
+  repository: project-owner/agent-system-development
+  source_ref: <origin/main | release tag | published_source_snapshot>
+  source_commit: <commit-sha>
+  checked_at: <ISO-8601 timestamp>
+  reference_type: <stable_branch_head | stable_release_tag | published_source_snapshot | stable_release_commit>
+  notes: <short Russian note>
+```
+
+Если `source_commit` получить нельзя, написать `STOP` или зафиксировать blocker и не считать audit ready-for-review.
+
+Все ответы, target-local docs, TASK/RESULT/INDEX и комментарии в файлах писать на русском языке. Английский допустим только для команд, путей, branch names, filenames, config keys, API names, package names, vendor/tool names и code identifiers.
+
+Если target `AGENTS.md` или эквивалентные target instructions еще не содержат Russian-first policy, зафиксировать это в audit и рекомендовать добавить правило в следующий adoption/update scope.
+
+## Allowed files
+
+- `docs/agent-system/ADOPTION_AUDIT.md`
+- `docs/agent-system/engine-journal/README.md`
+- `docs/agent-system/engine-journal/INDEX.md`
+- `docs/agent-system/engine-journal/input/TASK-<actual-next-seq>-<task-id>-<slug>.md`
+- `docs/agent-system/engine-journal/rationale/RATIONALE-<actual-next-seq>-<task-id>-<slug>.md`
+- `docs/agent-system/engine-journal/output/RESULT-<actual-next-seq>-<task-id>-<slug>.md`
+- `docs/agent-system/engine-journal/templates/ENGINE_TASK_FILE_TEMPLATE.md`
+- `docs/agent-system/engine-journal/templates/ENGINE_RESULT_FILE_TEMPLATE.md`
+- `docs/agent-system/engine-journal/templates/ENGINE_RATIONALE_FILE_TEMPLATE.md`
+
+Перед созданием TASK/RESULT engine вычисляет actual next sequence из `docs/agent-system/engine-journal/INDEX.md` на момент выполнения (`last seq + 1`) и подставляет его вместо `<actual-next-seq>`. Нельзя использовать заранее предсказанный номер из prompt.
+
+## Forbidden changes
+
+- `AGENTS.md`
+- `README.md`
+- `.github/workflows/**`
+- Docker files
+- runtime code
+- architecture docs
+- Source mirror
+- `.env`
+- `.venv/`
+- `data/`
+- `runtime/`
+- `dist/`
+- `backups/`
+- `exports/`
+
+## Required preflight
+
+- выполнить `ENGINE_SELF_DISCOVERY_CONTRACT.md`;
+- применить `ADOPTION_TRANSFER_MANIFEST.yml` как discovery map для source,
+  template, target-generated, journal scaffold/history и generated files;
+- прочитать local `AGENTS.md`;
+- прочитать local `README.md`;
+- прочитать local architecture/status docs, если есть;
+- проверить working tree;
+- если working tree dirty - использовать clean worktree или STOP;
+- sensitive grep только filename-only.
+- подготовить task file и expected result file по `ENGINE_JOURNAL_CONTRACT.md`.
+
+## Output
+
+Создать audit-файл с разделами:
+
+- self-discovery repository;
+- lifecycle mode repository;
+- выбранная branch model;
+- developer branch existence;
+- fallback-to-main допустим: yes/no с причиной;
+- current project state;
+- template repository summary;
+- fit analysis;
+- аудит language consistency;
+- список файлов с нерусскими governance descriptions;
+- рекомендация по унификации языка;
+- проверка скриптов, workflow и templates на достаточные русские комментарии для нужных строк/блоков;
+- рекомендация по adoption;
+- risks;
+- открытые вопросы;
+- Methodology feedback;
+- нейтральный `Methodology repository improvement request`, если audit показал, что methodology repository нужно улучшить.
+
+Создать journal artifacts:
+
+- task file в `docs/agent-system/engine-journal/input/`;
+- RATIONALE file в `docs/agent-system/engine-journal/rationale/`;
+- result file в `docs/agent-system/engine-journal/output/`;
+- строку в `docs/agent-system/engine-journal/INDEX.md`.
+
+Если audit-задача передана через Task File Handoff Mode, TASK file является source of truth, а result file должен зафиксировать task source commit SHA или blob SHA.
+
+TASK и RESULT должны содержать `methodology_reference`.
+
+RESULT должен содержать «Source Delta» по канону `docs/agent-system/templates/TASK_HEADER_COMMON.md` → «Source Delta».
+
+После создания PR обновить target-specific `RESULT` и `INDEX` фактическими PR/commit/status/checks значениями.
+
+Adoption audit является audit/consistency-gate и adoption/source-update контекстом, то есть per-task closure exception по `docs/agent-system/ENGINE_JOURNAL_CONTRACT.md` → «Closure policy». После merge рабочего PR, release PR или sync PR target-specific `RESULT` и `INDEX` закрываются по этому исключению.
+
+Выполнить placeholder scan journal files. Если placeholders остались, задачу нельзя считать ready-for-review.
+
+Правило language consistency:
+
+- все ответы, target-local docs, TASK/RESULT/INDEX и комментарии в файлах пишутся на русском языке;
+- English допустим только для code identifiers, paths, commands, config keys, vendor/tool names, upstream package names, API names, branch names, filenames и literal external names;
+- governance descriptions target repository должны быть Russian-first;
+- mixed-language sections должны быть либо оправданы, либо рекомендованы к нормализации.
+
+Methodology feedback не должен включать private downstream data, private repository URLs, client data, customer data, internal code names или secrets.
+
+## Checks
+
+- git status --short
+- git branch --show-current
+- git diff --check
+- git ls-files
+- проверка forbidden tracked paths
+- sensitive grep только filename-only
+- аудит language consistency
+- аудит commenting consistency
+- methodology reference содержит source commit SHA
+- consistency engine journal index/task/result
+- task-file-handoff metadata consistency, если режим использовался
+- placeholder scan engine journal
+- final report и RESULT содержат Source Delta по `docs/agent-system/templates/TASK_HEADER_COMMON.md` → «Source Delta»
+- проверка Closure policy (`audit/consistency-gate` и `adoption/source-update` — per-task closure exception)
+
+## Final report
+
+- final report — на русском языке;
+- working branch;
+- repository lifecycle mode;
+- selected branch model;
+- developer branch existence;
+- fallback-to-main допустим: yes/no с причиной;
+- engine task file;
+- engine result file;
+- created files;
+- changed files;
+- checks;
+- forbidden tracked paths result;
+- sensitive grep result без matching lines;
+- language consistency result;
+- commenting consistency result;
+- methodology reference;
+- RESULT finalized: yes/no;
+- INDEX finalized: yes/no;
+- Source Delta присутствует: yes/no;
+- No journal placeholders: yes/no;
+- статус PR после review (`PR status after review`);
+- merge commit SHA после merge, если доступен;
+- release PR URL/status/merge commit SHA, если release выполнялся;
+- sync PR URL/status/merge commit SHA, если sync выполнялся;
+- RESULT закрыт после merge: yes/no/not applicable;
+- INDEX закрыт после merge: yes/no/not applicable;
+- проверка Closure policy (`audit/consistency-gate` и `adoption/source-update` — per-task closure exception);
+- risks;
+- Methodology feedback;
+- Methodology repository improvement request, если есть;
+- commit SHA;
+- push status;
+- PR link/number.
